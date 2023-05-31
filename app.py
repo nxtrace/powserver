@@ -65,9 +65,15 @@ class PoWServer:
                 # 验证ip,ua,request_time是否对应此request_id
                 if hashlib.sha256(raw_data.encode()).hexdigest() != request_id:
                     return jsonify({'error': 'Wrong request_id'}), 400
+                x_forwarded_for = request.headers.get('x-forwarded-for')
+                ip=''
+                if x_forwarded_for:
+                    ip = x_forwarded_for.split(',')[0].strip()
+                else:
+                    ip = request.remote_addr
                 payload = {
                     'exp': int((datetime.utcnow().timestamp() + self.token_exp_sec) * 1000_000),
-                    'ip': hashlib.sha256((request.remote_addr + self.salt).encode()).hexdigest(),
+                    'ip': hashlib.sha256((ip + self.salt).encode()).hexdigest(),
                     'ua': hashlib.sha256((request.headers.get('User-Agent') + self.salt).encode()).hexdigest(),
                 }
                 token = jwt.encode(

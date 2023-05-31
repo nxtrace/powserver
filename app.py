@@ -38,7 +38,7 @@ class PoWServer:
             {
                 'challenge': {
                     'request_id': request_id,
-                    'challenge': challenge
+                    'challenge': str(challenge)
                 },
                 'request_time': current_timestamp,
             }

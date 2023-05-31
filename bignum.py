@@ -30,7 +30,7 @@ class PrimeGenerator:
         end = time.time()
         elapsed = end - start
 
-        return p, q, num, elapsed
+        return num, p, q, elapsed
 
     def generate_prime(self):
         while True:

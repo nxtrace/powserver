@@ -1,0 +1,16 @@
+[Unit]
+Description=NextTrace PoW Server
+After=network.target nexttrace-backend.service redis-server.service
+Requires=redis-server.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/develop/powserver
+ExecStart=/usr/bin/python3 -u app.py
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

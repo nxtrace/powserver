@@ -1,0 +1,17 @@
+###
+GET http://127.0.0.1:55000/request_token
+User-Agent: OAuth gem v0.4.4
+
+###
+POST http://127.0.0.1:55000/submit
+User-Agent: OAuth gem v0.4.4
+Content-Type: application/json
+
+{
+    "challenge": {
+        "request_id": "2af094c5185fdcf7c7965ad7c5ae67ca8a836360d017a7ec4d822db03af7c701"
+    },
+    "answer": ["1451", "1621"],
+    "request_time": 1685491691910252
+}
+

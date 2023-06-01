@@ -8,3 +8,4 @@
 /dataSources.local.xml
 .idea
 config.json
+__pycache__

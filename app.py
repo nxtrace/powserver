@@ -8,6 +8,9 @@ from flask import Flask, request, jsonify
 
 from bignum import PrimeGenerator
 
+# 设置logging级别
+logging.basicConfig(level=logging.INFO)
+
 
 class PoWServer:
     def __init__(self, redis_host='localhost', redis_port=6379, password=None):
@@ -34,6 +37,7 @@ class PoWServer:
                    + str(current_timestamp) + self.salt
         request_id = hashlib.sha256(raw_data.encode()).hexdigest()
         self.redis.set(name=request_id, ex=self.redis_exp_sec, value=f"{p1},{p2}")  # 将问题及其答案存储到 Redis
+        logging.info(f"request_id: {request_id}, challenge: {challenge}, p1: {p1}, p2: {p2}")
         return jsonify(
             {
                 'challenge': {
@@ -66,11 +70,12 @@ class PoWServer:
                 if hashlib.sha256(raw_data.encode()).hexdigest() != request_id:
                     return jsonify({'error': 'Wrong request_id'}), 400
                 x_forwarded_for = request.headers.get('x-forwarded-for')
-                ip=''
+                ip = ''
                 if x_forwarded_for:
                     ip = x_forwarded_for.split(',')[0].strip()
                 else:
                     ip = request.remote_addr
+                logging.info(f"ip: {ip}, ua: {request.headers.get('User-Agent')}")
                 payload = {
                     'exp': int((datetime.utcnow().timestamp() + self.token_exp_sec) * 1000_000),
                     'ip': hashlib.sha256((ip + self.salt).encode()).hexdigest(),
@@ -82,6 +87,7 @@ class PoWServer:
                     algorithm="HS256"
                 )
                 self.redis.delete(request_id)  # 删除已解答的问题
+                logging.info(f"token: {token}")
                 return jsonify(
                     {
                         'token': token,
@@ -101,6 +107,7 @@ class PoWServer:
             token = data['token']
             ip = data['ip']
             ua = data['ua']
+            logging.info(f"token: {token}, ip: {ip}, ua: {ua}")
         except KeyError:
             return jsonify({'error': 'Invalid data format'}), 400
         if not token:

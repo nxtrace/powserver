@@ -37,7 +37,7 @@ class PoWServer:
                    + str(current_timestamp) + self.salt
         request_id = hashlib.sha256(raw_data.encode()).hexdigest()
         self.redis.set(name=request_id, ex=self.redis_exp_sec, value=f"{p1},{p2}")  # 将问题及其答案存储到 Redis
-        logging.info(f"request_id: {request_id}, challenge: {challenge}, p1: {p1}, p2: {p2}")
+        logging.info(f"func request_token request_id: {request_id}, challenge: {challenge}, p1: {p1}, p2: {p2}")
         return jsonify(
             {
                 'challenge': {
@@ -76,6 +76,8 @@ class PoWServer:
                 else:
                     ip = request.remote_addr
                 logging.info(f"ip: {ip}, ua: {request.headers.get('User-Agent')}")
+                logging.info(f"ip.hash: {hashlib.sha256((ip + self.salt).encode()).hexdigest()}")
+                logging.info(f"ua.hash: {hashlib.sha256((request.headers.get('User-Agent') + self.salt).encode()).hexdigest()}")
                 payload = {
                     'exp': int((datetime.utcnow().timestamp() + self.token_exp_sec) * 1000_000),
                     'ip': hashlib.sha256((ip + self.salt).encode()).hexdigest(),
@@ -87,7 +89,7 @@ class PoWServer:
                     algorithm="HS256"
                 )
                 self.redis.delete(request_id)  # 删除已解答的问题
-                logging.info(f"token: {token}")
+                logging.info(f"func submit token: {token}")
                 return jsonify(
                     {
                         'token': token,
@@ -107,7 +109,7 @@ class PoWServer:
             token = data['token']
             ip = data['ip']
             ua = data['ua']
-            logging.info(f"token: {token}, ip: {ip}, ua: {ua}")
+            logging.info(f"func verify_request token: {token}, ip: {ip}, ua: {ua}")
         except KeyError:
             return jsonify({'error': 'Invalid data format'}), 400
         if not token:

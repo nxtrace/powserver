@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import json
 from datetime import datetime
 
 import jwt
@@ -8,19 +9,23 @@ from flask import Flask, request, jsonify
 
 from bignum import PrimeGenerator
 
+# 将类变量从config.json中读取
+config = json.load(open('config.json', 'r'))
+
+
 # 设置logging级别
 logging.basicConfig(level=logging.INFO)
 
 
 class PoWServer:
-    def __init__(self, redis_host='localhost', redis_port=6379, password=None):
+    def __init__(self):
         # 连接到 Redis
-        self.redis = redis.Redis(host=redis_host, port=redis_port, db=0, password=password)
-        self.secret_key = 'your_secret_key'
-        self.salt = "your_fixed_salt"
-        self.redis_exp_sec = 120  # 2min后过期
-        self.token_exp_sec = 120  # 2min后过期
-        self.bits = 36
+        self.redis = redis.Redis(host=config['redis_host'], port=config['redis_port'], db=config['redis_db'], password=config['redis_password'])
+        self.secret_key = config['secret_key']
+        self.salt = config['salt']
+        self.redis_exp_sec = config['redis_exp_sec']
+        self.token_exp_sec = config['token_exp_sec']
+        self.bits = config['bits']
         self.app = Flask(__name__)
         self.route()
 
@@ -137,5 +142,5 @@ class PoWServer:
 
 
 if __name__ == '__main__':
-    server = PoWServer(redis_host='localhost', redis_port=6379, password=None)
+    server = PoWServer()
     server.run()

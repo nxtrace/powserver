@@ -1,0 +1,11 @@
+{
+  "redis_host": "localhost",
+  "redis_port": 6379,
+  "redis_db": 0,
+  "redis_password": null,
+  "secret_key": "your_secret_key",
+  "salt": "your_fixed_salt",
+  "redis_exp_sec": 120,
+  "token_exp_sec": 120,
+  "bits": 36
+}

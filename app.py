@@ -14,7 +14,8 @@ config = json.load(open('config.json', 'r'))
 
 
 # 设置logging级别
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=getattr(logging, config['logging_level'].upper(), logging.INFO),
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 class PoWServer:

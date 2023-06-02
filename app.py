@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import json
+import os
 from datetime import datetime
 
 import jwt
@@ -10,18 +11,15 @@ from flask import Flask, request, jsonify
 from bignum import PrimeGenerator
 
 # 将类变量从config.json中读取
-config = json.load(open('config.json', 'r'))
-
-
-# 设置logging级别
-logging.basicConfig(level=getattr(logging, config['logging_level'].upper(), logging.INFO),
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+config_file = os.path.join(os.path.dirname(__file__), 'config.json')
+config = json.load(open(config_file, 'r'))
 
 
 class PoWServer:
     def __init__(self):
         # 连接到 Redis
-        self.redis = redis.Redis(host=config['redis_host'], port=config['redis_port'], db=config['redis_db'], password=config['redis_password'])
+        self.redis = redis.Redis(host=config['redis_host'], port=config['redis_port'], db=config['redis_db'],
+                                 password=config['redis_password'])
         self.secret_key = config['secret_key']
         self.salt = config['salt']
         self.redis_exp_sec = config['redis_exp_sec']
@@ -29,6 +27,14 @@ class PoWServer:
         self.bits = config['bits']
         self.app = Flask(__name__)
         self.route()
+        # 设置logging级别
+        if 'GUNICORN_CMD_ARGS' in os.environ:
+            gunicorn_logger = logging.getLogger('gunicorn.error')
+            self.app.logger.handlers = gunicorn_logger.handlers
+            self.app.logger.setLevel(gunicorn_logger.level)
+        else:
+            logging.basicConfig(level=getattr(logging, config['logging_level'].upper(), logging.INFO),
+                                format='%(asctime)s - %(levelname)s - %(message)s')
 
     def request_token(self):
         prime_generator = PrimeGenerator(self.bits)
@@ -76,14 +82,14 @@ class PoWServer:
                 if hashlib.sha256(raw_data.encode()).hexdigest() != request_id:
                     return jsonify({'error': 'Wrong request_id'}), 400
                 x_forwarded_for = request.headers.get('x-forwarded-for')
-                ip = ''
                 if x_forwarded_for:
                     ip = x_forwarded_for.split(',')[0].strip()
                 else:
                     ip = request.remote_addr
                 logging.info(f"ip: {ip}, ua: {request.headers.get('User-Agent')}")
                 logging.info(f"ip.hash: {hashlib.sha256((ip + self.salt).encode()).hexdigest()}")
-                logging.info(f"ua.hash: {hashlib.sha256((request.headers.get('User-Agent') + self.salt).encode()).hexdigest()}")
+                logging.info(
+                    f"ua.hash: {hashlib.sha256((request.headers.get('User-Agent') + self.salt).encode()).hexdigest()}")
                 payload = {
                     'exp': int((datetime.utcnow().timestamp() + self.token_exp_sec) * 1000_000),
                     'ip': hashlib.sha256((ip + self.salt).encode()).hexdigest(),
@@ -142,6 +148,8 @@ class PoWServer:
         self.app.run(host=host, port=port)
 
 
+# 在这里创建PoWServer实例
+server = PoWServer()
+APP = server.app
 if __name__ == '__main__':
-    server = PoWServer()
     server.run()

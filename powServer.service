@@ -1,5 +1,5 @@
 [Unit]
-Description=NextTrace PoW Server
+Description=Gunicorn instance to NextTrace PoW Server
 After=network.target nexttrace-backend.service redis-server.service
 Requires=redis-server.service
 
@@ -7,7 +7,7 @@ Requires=redis-server.service
 Type=simple
 User=root
 WorkingDirectory=/root/develop/powserver
-ExecStart=/usr/bin/python3 -u app.py
+ExecStart=/bin/bash start.sh
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process
 Restart=on-failure

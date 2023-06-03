@@ -44,7 +44,7 @@ class PoWServer:
         current_timestamp = int((datetime.utcnow().timestamp()) * 1000_000)
         x_forwarded_for = request.headers.get('x-forwarded-for')
         ip = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else request.remote_addr
-        # TODO: 根据此处的IP动态调整POW难度
+
         # 查询ip在redis中的次数，如果查不到设置为0
         ip_count = self.redis.get(ip) or 0
         # 如果次数大于等于60，返回429
@@ -55,17 +55,19 @@ class PoWServer:
         # 设置重新设置这条记录的过期时间为20min
         self.redis.expire(ip, 20 * 60)
         # 由次数设置难度
-        sorted_difficulty_curve = sorted(self.difficulty_curve, key=lambda x: x['threshold'])
+        self.difficulty_curve = sorted(self.difficulty_curve, key=lambda x: x['threshold'])
+        _bits = self.bits
         for item in self.difficulty_curve:
             threshold = item['threshold']
             difficulty = item['difficulty']
             if int(ip_count) < threshold:
-                self.bits += difficulty
+                _bits += difficulty
                 break
-        logging.info(f"func request_token ip: {ip}, ip_count: {ip_count}, bits: {self.bits}")
+        logging.info(f"func request_token ip: {ip}, ip_count: {ip_count}, bits: {_bits}")
+
         raw_data = ip + request.headers.get('User-Agent') + str(current_timestamp) + self.salt
         request_id = hashlib.sha256(raw_data.encode()).hexdigest()
-        prime_generator = PrimeGenerator(self.bits)
+        prime_generator = PrimeGenerator(_bits)
         challenge, p1, p2, _ = prime_generator.generate_large_number()
         # log打印challenge p1 p2 ElapsedTime的值
         logging.info(f"challenge: {challenge}, p1: {p1}, p2: {p2}, ElapsedTime: {_}")
@@ -91,7 +93,9 @@ class PoWServer:
             request_time = data['request_time']
         except KeyError:
             return jsonify({'error': 'Invalid data format'}), 400
-        raw_data = request.remote_addr + request.headers.get('User-Agent') \
+        x_forwarded_for = request.headers.get('x-forwarded-for')
+        ip = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else request.remote_addr
+        raw_data = ip + request.headers.get('User-Agent') \
                    + str(request_time) + self.salt
         correct_answer = self.redis.get(request_id)
         if correct_answer:
@@ -102,8 +106,6 @@ class PoWServer:
                 # 验证ip,ua,request_time是否对应此request_id
                 if hashlib.sha256(raw_data.encode()).hexdigest() != request_id:
                     return jsonify({'error': 'Wrong request_id'}), 400
-                x_forwarded_for = request.headers.get('x-forwarded-for')
-                ip = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else request.remote_addr
                 logging.info(f"ip: {ip}, ua: {request.headers.get('User-Agent')}")
                 logging.info(f"ip.hash: {hashlib.sha256((ip + self.salt).encode()).hexdigest()}")
                 logging.info(

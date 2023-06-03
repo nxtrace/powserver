@@ -3,6 +3,10 @@ GET http://127.0.0.1:55000/request_challenge
 User-Agent: OAuth gem v0.4.4
 
 ###
+GET https://api.leo.moe/v3/challenge/request_challenge
+User-Agent: OAuth gem v0.4.4
+
+###
 POST http://127.0.0.1:55000/submit_answer
 User-Agent: OAuth gem v0.4.4
 Content-Type: application/json

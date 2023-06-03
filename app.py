@@ -37,17 +37,20 @@ class PoWServer:
                                 format='%(asctime)s - %(levelname)s - %(message)s')
 
     def request_token(self):
+        # 当header中没有UA时，返回401
+        if not request.headers.get('User-Agent'):
+            return jsonify({'error': 'No User-Agent'}), 401
+        current_timestamp = int((datetime.utcnow().timestamp()) * 1000_000)
+        x_forwarded_for = request.headers.get('x-forwarded-for')
+        ip = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else request.remote_addr
+        # TODO: 根据此处的IP动态调整POW难度
+
+        raw_data = ip + request.headers.get('User-Agent') + str(current_timestamp) + self.salt
+        request_id = hashlib.sha256(raw_data.encode()).hexdigest()
         prime_generator = PrimeGenerator(self.bits)
         challenge, p1, p2, _ = prime_generator.generate_large_number()
         # log打印challenge p1 p2 ElapsedTime的值
         logging.info(f"challenge: {challenge}, p1: {p1}, p2: {p2}, ElapsedTime: {_}")
-        current_timestamp = int((datetime.utcnow().timestamp()) * 1000_000)
-        # 当header中没有UA时，返回401
-        if not request.headers.get('User-Agent'):
-            return jsonify({'error': 'No User-Agent'}), 401
-        raw_data = request.remote_addr + request.headers.get('User-Agent') \
-                   + str(current_timestamp) + self.salt
-        request_id = hashlib.sha256(raw_data.encode()).hexdigest()
         self.redis.set(name=request_id, ex=self.redis_exp_sec, value=f"{p1},{p2}")  # 将问题及其答案存储到 Redis
         logging.info(f"func request_token request_id: {request_id}, challenge: {challenge}, p1: {p1}, p2: {p2}")
         return jsonify(
@@ -82,10 +85,7 @@ class PoWServer:
                 if hashlib.sha256(raw_data.encode()).hexdigest() != request_id:
                     return jsonify({'error': 'Wrong request_id'}), 400
                 x_forwarded_for = request.headers.get('x-forwarded-for')
-                if x_forwarded_for:
-                    ip = x_forwarded_for.split(',')[0].strip()
-                else:
-                    ip = request.remote_addr
+                ip = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else request.remote_addr
                 logging.info(f"ip: {ip}, ua: {request.headers.get('User-Agent')}")
                 logging.info(f"ip.hash: {hashlib.sha256((ip + self.salt).encode()).hexdigest()}")
                 logging.info(

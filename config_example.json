@@ -11,5 +11,11 @@
   "salt": "your_fixed_salt",
   "redis_exp_sec": 120,
   "token_exp_sec": 120,
-  "bits": 36
+  "bits": 34,
+  "difficulty_curve": [
+    {"threshold": 20, "difficulty": 0},
+    {"threshold": 40, "difficulty": 1},
+    {"threshold": 80, "difficulty": 2},
+    {"threshold": 160, "difficulty": 3}
+  ]
 }

@@ -25,6 +25,7 @@ class PoWServer:
         self.redis_exp_sec = config['redis_exp_sec']
         self.token_exp_sec = config['token_exp_sec']
         self.bits = config['bits']
+        self.difficulty_curve = config['difficulty_curve'] or []
         self.app = Flask(__name__)
         self.route()
         # 设置logging级别
@@ -44,7 +45,24 @@ class PoWServer:
         x_forwarded_for = request.headers.get('x-forwarded-for')
         ip = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else request.remote_addr
         # TODO: 根据此处的IP动态调整POW难度
-
+        # 查询ip在redis中的次数，如果查不到设置为0
+        ip_count = self.redis.get(ip) or 0
+        # 如果次数大于等于60，返回429
+        if int(ip_count) >= 60:
+            return jsonify({'error': 'Too Many Requests'}), 429
+        # 次数加1
+        self.redis.incr(ip)
+        # 设置重新设置这条记录的过期时间为20min
+        self.redis.expire(ip, 20 * 60)
+        # 由次数设置难度
+        sorted_difficulty_curve = sorted(self.difficulty_curve, key=lambda x: x['threshold'])
+        for item in self.difficulty_curve:
+            threshold = item['threshold']
+            difficulty = item['difficulty']
+            if int(ip_count) < threshold:
+                self.bits += difficulty
+                break
+        logging.info(f"func request_token ip: {ip}, ip_count: {ip_count}, bits: {self.bits}")
         raw_data = ip + request.headers.get('User-Agent') + str(current_timestamp) + self.salt
         request_id = hashlib.sha256(raw_data.encode()).hexdigest()
         prime_generator = PrimeGenerator(self.bits)

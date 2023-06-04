@@ -8,4 +8,5 @@
 /dataSources.local.xml
 .idea
 config.json
+ipcidr_whilelist.txt
 __pycache__

@@ -1,4 +1,5 @@
 import hashlib
+import ipaddress
 import logging
 import json
 import os
@@ -13,6 +14,30 @@ from bignum import PrimeGenerator
 # 将类变量从config.json中读取
 config_file = os.path.join(os.path.dirname(__file__), 'config.json')
 config = json.load(open(config_file, 'r'))
+ipcidr_whilelist_file = os.path.join(os.path.dirname(__file__), 'ipcidr_whilelist.txt')
+try:
+    ipcidr_whilelist = open(ipcidr_whilelist_file, 'r').read().splitlines() or []
+except FileNotFoundError:
+    ipcidr_whilelist = []
+if ipcidr_whilelist:
+    data_list = []
+    # 每行ipcidr_whilelist都是以单个或多个空格隔或者制表符开的
+    for line in ipcidr_whilelist:
+        elements = line.split()
+        data_list.append([elements[0], elements[1]])
+    ipcidr_whilelist = data_list
+    print(f"ipcidr_whilelist: {ipcidr_whilelist}")
+
+
+def ip_in_ciddr(ip, ipcidr_list):
+    _ip = ipaddress.ip_address(ip)
+    res = False
+    for ipcidr in ipcidr_list:
+        _net = ipaddress.ip_network(ipcidr[1])
+        if _ip.version == _net.version and _ip in _net:
+            res = True
+            break
+    return res
 
 
 class PoWServer:
@@ -45,25 +70,29 @@ class PoWServer:
         x_forwarded_for = request.headers.get('x-forwarded-for')
         ip = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else request.remote_addr
 
-        # 查询ip在redis中的次数，如果查不到设置为0
-        ip_count = self.redis.get(ip) or 0
-        # 如果次数大于等于60，返回429
-        if int(ip_count) >= 60:
-            return jsonify({'error': 'Too Many Requests'}), 429
-        # 次数加1
-        self.redis.incr(ip)
-        # 设置重新设置这条记录的过期时间为20min
-        self.redis.expire(ip, 20 * 60)
-        # 由次数设置难度
-        self.difficulty_curve = sorted(self.difficulty_curve, key=lambda x: x['threshold'])
-        _bits = self.bits
-        for item in self.difficulty_curve:
-            threshold = item['threshold']
-            difficulty = item['difficulty']
-            if int(ip_count) < threshold:
-                _bits += difficulty
-                break
-        logging.info(f"func request_token ip: {ip}, ip_count: {ip_count}, bits: {_bits}")
+        if not ip_in_ciddr(ip, ipcidr_whilelist):
+            _bits = self.bits
+            # 查询ip在redis中的次数，如果查不到设置为0
+            ip_count = self.redis.get(ip) or 0
+            # 如果次数大于等于60，返回429
+            if int(ip_count) >= 60:
+                return jsonify({'error': 'Too Many Requests'}), 429
+            # 次数加1
+            self.redis.incr(ip)
+            # 设置重新设置这条记录的过期时间为20min
+            self.redis.expire(ip, 20 * 60)
+            # 由次数设置难度
+            self.difficulty_curve = sorted(self.difficulty_curve, key=lambda x: x['threshold'])
+            for item in self.difficulty_curve:
+                threshold = item['threshold']
+                difficulty = item['difficulty']
+                if int(ip_count) < threshold:
+                    _bits += difficulty
+                    break
+            logging.info(f"func request_token ip: {ip}, ip_count: {ip_count}, bits: {_bits}")
+        else:
+            _bits = 10
+            logging.info(f"func request_token ip: {ip}, hit whitelist, bits: {_bits}")
 
         raw_data = ip + request.headers.get('User-Agent') + str(current_timestamp) + self.salt
         request_id = hashlib.sha256(raw_data.encode()).hexdigest()

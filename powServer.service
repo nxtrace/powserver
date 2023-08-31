@@ -1,6 +1,6 @@
 [Unit]
 Description=Gunicorn instance to NextTrace PoW Server
-After=network.target nexttrace-backendv2.service
+After=network.target
 
 [Service]
 Type=simple

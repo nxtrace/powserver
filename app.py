@@ -184,8 +184,8 @@ class PoWServer:
             return jsonify({'error': 'Token has expired'}), 401
         #if decoded.get('ip') != hashlib.sha256((ip + self.salt).encode()).hexdigest():
         #    return jsonify({'error': 'Invalid ip'}), 401
-        if decoded.get('ua') != hashlib.sha256((ua + self.salt).encode()).hexdigest():
-            return jsonify({'error': 'Invalid ua'}), 401
+        #if decoded.get('ua') != hashlib.sha256((ua + self.salt).encode()).hexdigest():
+        #    return jsonify({'error': 'Invalid ua'}), 401
         return jsonify({'message': 'Token is valid'}), 200
 
     def route(self):

@@ -75,12 +75,12 @@ class PoWServer:
             # 查询ip在redis中的次数，如果查不到设置为0
             ip_count = self.redis.get(ip) or 0
             # 如果次数大于等于60，返回429
-            if int(ip_count) >= 60:
+            if int(ip_count) >= 120:
                 return jsonify({'error': 'Too Many Requests'}), 429
             # 次数加1
             self.redis.incr(ip)
             # 设置重新设置这条记录的过期时间为20min
-            self.redis.expire(ip, 20 * 60)
+            self.redis.expire(ip, 30 * 60)
             # 由次数设置难度
             self.difficulty_curve = sorted(self.difficulty_curve, key=lambda x: x['threshold'])
             for item in self.difficulty_curve:

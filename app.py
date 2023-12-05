@@ -193,10 +193,14 @@ class PoWServer:
         return jsonify({'message': 'Token is valid'}), 200
 
     def send_to_stats_api(self, ip, ua):
-        if self.stats:
-            # 用requests库发送数据到统计API
-            payload = {'ip': ip, "token": self.stats["token"], "ua": ua, "type": "ws_connect"}
-            requests.post(self.stats["url"], json=payload)
+        try:
+            if self.stats:
+                # 用requests库发送数据到统计API
+                payload = {'ip': ip, "token": self.stats["token"], "ua": ua, "type": "ws_connect"}
+                requests.post(self.stats["url"], json=payload)
+                logging.info(f"func send_to_stats_api payload: {payload}")
+        except Exception as e:
+            logging.error(f"func send_to_stats_api error: {e}")
 
     def route(self):
         self.app.route('/request_challenge', methods=['GET'])(self.request_token)

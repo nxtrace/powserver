@@ -3,10 +3,12 @@ import ipaddress
 import logging
 import json
 import os
+import threading
 from datetime import datetime
 
 import jwt
 import redis
+import requests
 from flask import Flask, request, jsonify
 
 from bignum import PrimeGenerator
@@ -51,6 +53,7 @@ class PoWServer:
         self.token_exp_sec = config['token_exp_sec']
         self.bits = config['bits']
         self.difficulty_curve = config['difficulty_curve'] or []
+        self.stats = config['stats']
         self.app = Flask(__name__)
         self.route()
         # 设置logging级别
@@ -182,11 +185,18 @@ class PoWServer:
         current_timestamp = int((datetime.utcnow().timestamp()) * 1000_000)
         if decoded.get('exp', 0) < current_timestamp:
             return jsonify({'error': 'Token has expired'}), 401
-        #if decoded.get('ip') != hashlib.sha256((ip + self.salt).encode()).hexdigest():
+        # if decoded.get('ip') != hashlib.sha256((ip + self.salt).encode()).hexdigest():
         #    return jsonify({'error': 'Invalid ip'}), 401
-        #if decoded.get('ua') != hashlib.sha256((ua + self.salt).encode()).hexdigest():
+        # if decoded.get('ua') != hashlib.sha256((ua + self.salt).encode()).hexdigest():
         #    return jsonify({'error': 'Invalid ua'}), 401
+        threading.Thread(target=self.send_to_stats_api, args=(data['ip'], data['ua'])).start()
         return jsonify({'message': 'Token is valid'}), 200
+
+    def send_to_stats_api(self, ip, ua):
+        if self.stats:
+            # 用requests库发送数据到统计API
+            payload = {'ip': ip, "token": self.stats["token"], "ua": ua, "type": "ws_connect"}
+            requests.post(self.stats["url"], json=payload)
 
     def route(self):
         self.app.route('/request_challenge', methods=['GET'])(self.request_token)

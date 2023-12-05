@@ -17,5 +17,6 @@
     {"threshold": 40, "difficulty": 1},
     {"threshold": 80, "difficulty": 2},
     {"threshold": 160, "difficulty": 3}
-  ]
+  ],
+  "stats": {}
 }

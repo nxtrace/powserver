@@ -52,8 +52,8 @@ class PoWServer:
         self.redis_exp_sec = config['redis_exp_sec']
         self.token_exp_sec = config['token_exp_sec']
         self.bits = config['bits']
-        self.difficulty_curve = config['difficulty_curve'] or []
-        self.stats = config['stats'] or {}
+        self.difficulty_curve = config.get('difficulty_curve', [])
+        self.stats = config.get('stats', {})
         self.app = Flask(__name__)
         self.route()
         # 设置logging级别

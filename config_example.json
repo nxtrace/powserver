@@ -12,6 +12,8 @@
   "redis_exp_sec": 120,
   "token_exp_sec": 120,
   "bits": 34,
+  "ipv4_cidr_prefix": 32,
+  "ipv6_cidr_prefix": 56,
   "difficulty_curve": [
     {"threshold": 20, "difficulty": 0},
     {"threshold": 40, "difficulty": 1},

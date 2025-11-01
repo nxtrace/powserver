@@ -54,6 +54,8 @@ class PoWServer:
         self.bits = config['bits']
         self.difficulty_curve = config.get('difficulty_curve', [])
         self.stats = config.get('stats', {})
+        self.ipv4_cidr_prefix = int(config.get('ipv4_cidr_prefix', 32))
+        self.ipv6_cidr_prefix = int(config.get('ipv6_cidr_prefix', 56))
         self.app = Flask(__name__)
         self.route()
         # 设置logging级别
@@ -65,6 +67,14 @@ class PoWServer:
             logging.basicConfig(level=getattr(logging, config['logging_level'].upper(), logging.INFO),
                                 format='%(asctime)s - %(levelname)s - %(message)s')
 
+    def _rate_limit_key(self, ip):
+        addr = ipaddress.ip_address(ip)
+        prefix = self.ipv4_cidr_prefix if addr.version == 4 else self.ipv6_cidr_prefix
+        max_prefix = 32 if addr.version == 4 else 128
+        safe_prefix = max(0, min(prefix, max_prefix))
+        network = ipaddress.ip_network(f"{addr}/{safe_prefix}", strict=False)
+        return str(network)
+
     def request_token(self):
         # 当header中没有UA时，返回401
         if not request.headers.get('User-Agent'):
@@ -75,24 +85,26 @@ class PoWServer:
 
         if not ip_in_ciddr(ip, ipcidr_whilelist):
             _bits = self.bits
-            # 查询ip在redis中的次数，如果查不到设置为0
-            ip_count = self.redis.get(ip) or 0
+            # 查询对应CIDR段在redis中的次数，如果查不到设置为0
+            cidr_key = self._rate_limit_key(ip)
+            bucket_count = self.redis.get(cidr_key) or 0
+            bucket_count = int(bucket_count) if bucket_count else 0
             # 如果次数大于等于60，返回429
-            if int(ip_count) >= 120:
+            if bucket_count >= 120:
                 return jsonify({'error': 'Too Many Requests'}), 429
             # 次数加1
-            self.redis.incr(ip)
+            self.redis.incr(cidr_key)
             # 设置重新设置这条记录的过期时间为20min
-            self.redis.expire(ip, 30 * 60)
+            self.redis.expire(cidr_key, 30 * 60)
             # 由次数设置难度
             self.difficulty_curve = sorted(self.difficulty_curve, key=lambda x: x['threshold'])
             for item in self.difficulty_curve:
                 threshold = item['threshold']
                 difficulty = item['difficulty']
-                if int(ip_count) < threshold:
+                if bucket_count < threshold:
                     _bits += difficulty
                     break
-            logging.info(f"func request_token ip: {ip}, ip_count: {ip_count}, bits: {_bits}")
+            logging.info(f"func request_token ip: {ip}, cidr_key: {cidr_key}, bucket_count: {bucket_count}, bits: {_bits}")
         else:
             _bits = 10
             logging.info(f"func request_token ip: {ip}, hit whitelist, bits: {_bits}")

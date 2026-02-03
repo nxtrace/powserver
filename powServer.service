@@ -6,7 +6,9 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/root/develop/powserver
-ExecStart=/bin/bash launch.sh
+Environment=VIRTUAL_ENV=/root/develop/powserver/.venv
+Environment=PATH=/root/develop/powserver/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+ExecStart=/bin/bash /root/develop/powserver/launch.sh
 ExecReload=/bin/kill -s HUP $MAINPID
 ExecStop=/bin/bash -c '/bin/kill -s TERM $MAINPID; sleep 2; /bin/kill -s KILL $MAINPID'
 Restart=on-failure

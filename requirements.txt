@@ -2,4 +2,4 @@ requests
 PyJWT~=2.11.0
 redis~=7.1.0
 Flask~=3.1.2
-gunicorn~=25.0.1
+gunicorn~=25.1.0
